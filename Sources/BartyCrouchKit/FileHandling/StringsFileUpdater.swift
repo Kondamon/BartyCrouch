@@ -260,6 +260,9 @@ public class StringsFileUpdater {
     separateWithEmptyLine: Bool,
     override: Bool = false
   ) throws -> Int {
+    if override {
+      print("Overriding all existing translations!", level: .warning)
+    }
     guard let (sourceLanguage, sourceRegion) = extractLocale(fromPath: sourceStringsFilePath) else {
       throw MungoFatalError(
         source: .invalidUserInput,
@@ -312,9 +315,18 @@ public class StringsFileUpdater {
         translator = .init(translationService: .openAI(apiKey: secret, context: context))
       }
 
-      // Collect all source translations for batch processing
-      let sourcesToTranslate = sourceTranslations.map { sourceTranslation -> Source in
+      // Filter source translations that need processing based on 'override' flag
+      let sourcesToTranslate = sourceTranslations.compactMap { sourceTranslation -> Source? in
           let (sourceKey, sourceValue, sourceComment, _) = sourceTranslation
+
+          // Check if the key already has a translated value
+          if !override, let existingTranslation = existingTargetTranslations.first(where: { $0.key == sourceKey }) {
+              if !existingTranslation.value.isEmpty {  // Skip already translated values
+                  return nil
+              }
+          }
+
+          // Include only entries that need translation
           return Source(key: sourceKey, text: sourceValue, comment: sourceComment)
       }
 

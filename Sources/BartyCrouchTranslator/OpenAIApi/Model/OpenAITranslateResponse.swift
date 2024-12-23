@@ -3,10 +3,11 @@ import Foundation
 struct OpenAITranslateResponse: Decodable {
     struct Choice: Decodable {
         struct Message: Decodable {
+            struct Translation: Decodable {
+                let text: String
+            }
+
             struct Content: Decodable {
-                struct Translation: Decodable {
-                    let text: String
-                }
                 let translations: [Translation]
             }
 
@@ -14,7 +15,7 @@ struct OpenAITranslateResponse: Decodable {
             let content: Content
             let refusal: String?
 
-            // Custom decoding to parse JSON string in 'content'
+            // Custom decoding for 'content' as a JSON string
             private enum CodingKeys: String, CodingKey {
                 case role, content, refusal
             }
@@ -23,9 +24,16 @@ struct OpenAITranslateResponse: Decodable {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
                 role = try container.decode(String.self, forKey: .role)
 
-                // Decode `content` as a JSON string and parse it as JSON
+                // Decode `content` as a JSON string
                 let contentString = try container.decode(String.self, forKey: .content)
-                let contentData = Data(contentString.utf8)
+
+                // Remove code block markers and parse the JSON string
+                let jsonString = contentString
+                    .replacingOccurrences(of: "```json", with: "")
+                    .replacingOccurrences(of: "```", with: "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+
+                let contentData = Data(jsonString.utf8)
                 content = try JSONDecoder().decode(Content.self, from: contentData)
 
                 refusal = try container.decodeIfPresent(String.self, forKey: .refusal)

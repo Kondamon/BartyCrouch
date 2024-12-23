@@ -12,6 +12,8 @@ public enum Language: String {
   case catalan = "ca"
   case chineseSimplified = "zh-Hans"
   case chineseTraditional = "zh-Hant"
+  case traditionalChinese = "zh-TW"
+  case simplifiedChinese = "zh-CN"
   case croatian = "hr"
   case czech = "cs"
   case dari = "prs"

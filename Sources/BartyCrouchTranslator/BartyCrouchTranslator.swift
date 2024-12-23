@@ -70,6 +70,7 @@ public final class BartyCrouchTranslator {
       from sourceLanguage: Language,
       to targetLanguages: [Language]
   ) -> Result<[Translation], MungoError> {
+      guard sources.count > 0 else { return .success([]) }
       switch translationService {
       
       // Microsoft Translation
