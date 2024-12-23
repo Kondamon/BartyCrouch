@@ -98,6 +98,8 @@ extension OpenAIApi: Endpoint {
     switch self {
     case let .translate(sources, sourceLanguage, targetLanguage, context, _):
       
+      print("Starting OpenAIAPI request for \(sources.count) translations from \(sourceLanguage) to \(targetLanguage).")
+      
       // --------------------------------------------------------------------------------
       // MODEL 4o (GPT-4-like model) & DATA EXTRACTION PARADIGM
       //
@@ -158,7 +160,7 @@ extension OpenAIApi: Endpoint {
       )
       
       let messages = [systemMessage, userMessage]
-      print("Starting API request with '\(messages)' ...")
+      
       // Create a structured request object to encode as JSON.
       let requestPayload = OpenAIChatCompletionRequest(
         model: "gpt-4o",
