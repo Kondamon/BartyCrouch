@@ -161,7 +161,7 @@ extension OpenAIApi: Endpoint {
       
       // Create a structured request object to encode as JSON.
       let requestPayload = OpenAIChatCompletionRequest(
-        model: "gpt-4",
+        model: "gpt-4o",
         messages: messages,
         temperature: 0.0
       )
