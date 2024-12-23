@@ -1,9 +1,9 @@
-// swift-tools-version:5.4
+// swift-tools-version:5.6
 import PackageDescription
 
 let package = Package(
   name: "BartyCrouch",
-  platforms: [.macOS(.v10_15)],
+  platforms: [.macOS(.v10_15), .iOS(.v15)],
   products: [
     .executable(name: "bartycrouch", targets: ["BartyCrouch"]),
     .library(name: "BartyCrouchConfiguration", targets: ["BartyCrouchConfiguration"]),
@@ -11,12 +11,12 @@ let package = Package(
     .library(name: "BartyCrouchTranslator", targets: ["BartyCrouchTranslator"]),
   ],
   dependencies: [
-    .package(name: "HandySwift", url: "https://github.com/Flinesoft/HandySwift.git", from: "3.2.0"),
-    .package(name: "Microya", url: "https://github.com/Flinesoft/Microya.git", .branch("support/without-combine")),
-    .package(name: "MungoHealer", url: "https://github.com/Flinesoft/MungoHealer.git", from: "0.3.4"),
-    .package(name: "Rainbow", url: "https://github.com/onevcat/Rainbow.git", from: "3.1.5"),
-    .package(name: "SwiftCLI", url: "https://github.com/jakeheis/SwiftCLI.git", from: "6.0.3"),
-    .package(name: "Toml", url: "https://github.com/jdfergason/swift-toml.git", .branch("master")),
+    .package(url: "https://github.com/Flinesoft/HandySwift.git", from: "3.2.0"),
+    .package(url: "https://github.com/Flinesoft/Microya.git", branch: "support/without-combine"),
+    .package(url: "https://github.com/Flinesoft/MungoHealer.git", from: "0.3.4"),
+    .package(url: "https://github.com/onevcat/Rainbow.git", from: "3.1.5"),
+    .package(url: "https://github.com/jakeheis/SwiftCLI.git", from: "6.0.3"),
+    .package(url: "https://github.com/jdfergason/swift-toml.git", branch: "master"),
     .package(url: "https://github.com/apple/swift-syntax.git", from: "508.0.0"),
 
     // A collection of tools for debugging, diffing, and testing your application's data structures.
@@ -49,7 +49,7 @@ let package = Package(
       name: "BartyCrouchConfiguration",
       dependencies: [
         "MungoHealer",
-        "Toml",
+        .product(name: "Toml", package: "swift-toml"),
         "BartyCrouchUtility",
       ]
     ),
@@ -58,7 +58,7 @@ let package = Package(
       dependencies: [
         "BartyCrouchConfiguration",
         .product(name: "CustomDump", package: "swift-custom-dump"),
-        "Toml",
+        .product(name: "Toml", package: "swift-toml"),
       ]
     ),
     .target(
