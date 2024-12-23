@@ -10,8 +10,8 @@ class OpenAITranslatorApiTests: XCTestCase {
 
     let endpoint = OpenAIApi.translate(
       sources: [.init(key: "noKey", text: "How old are you?", comment: nil),
-              .init(key: "key.button", text: "Love", comment: nil),
-              .init(key: "key.button", text: "Completed", comment: nil)
+                .init(key: "key.button", text: "Love", comment: nil),
+                .init(key: "key.button", text: "Completed", comment: nil)
       ],
       from: .english,
       to: .german,

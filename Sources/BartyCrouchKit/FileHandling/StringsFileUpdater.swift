@@ -312,72 +312,84 @@ public class StringsFileUpdater {
         translator = .init(translationService: .openAI(apiKey: secret, context: context))
       }
 
-      for sourceTranslation in sourceTranslations {
-        let (sourceKey, sourceValue, sourceComment, sourceLine) = sourceTranslation
-        var targetTranslationOptional = existingTargetTranslations.first { $0.key == sourceKey }
+      // Collect all source translations for batch processing
+      let sourcesToTranslate = sourceTranslations.map { sourceTranslation -> Source in
+          let (sourceKey, sourceValue, sourceComment, _) = sourceTranslation
+          return Source(key: sourceKey, text: sourceValue, comment: sourceComment)
+      }
 
-        if targetTranslationOptional == nil {
-          targetTranslationOptional = (sourceKey, "", sourceComment, sourceLine)
-        }
-
-        guard let targetTranslation = targetTranslationOptional else {
-          print("targetTranslation was nil when not expected", level: .error, file: path)
-          fatalError()
-        }
-
-        let (key, value, comment, line) = targetTranslation
-
-        guard value.isEmpty || override else {
-          updatedTargetTranslations.append(targetTranslation)
-          continue  // skip already translated values
-        }
-
-        guard !sourceValue.isEmpty else {
-          print(
-            "Value for key '\(key)' in source translations is empty.",
-            level: .warning,
-            file: sourceStringsFilePath,
-            line: line
-          )
-          continue
-        }
-
-        let updatedTargetTranslationIndex = updatedTargetTranslations.count
-        updatedTargetTranslations.append(targetTranslation)
-
-        switch translator.translate(sources: [Source(key: sourceKey,
-                                                     text: sourceValue,
-                                                     comment: sourceComment)],
-                                    from: sourceTranslatorLanguage, to: [targetTranslatorLanguage]) {
-        case let .success(translations):
-          if let translatedValue = translations.first?.translatedText {
-            if !translatedValue.isEmpty {
-              updatedTargetTranslations[updatedTargetTranslationIndex] = (
-                key, translatedValue.asStringLiteral, comment, line
-              )
-              translatedValuesCount += 1
-            }
-            else {
-              print(
-                "Resulting translation of '\(sourceValue)' to '\(targetTranslatorLanguage)' was empty.",
-                level: .warning,
-                file: path,
-                line: line
-              )
-            }
-          }
-          else {
-            print("Could not fetch translation for '\(sourceValue)'.", level: .warning, file: path, line: line)
+      // Perform batch translation
+      switch translator.translate(
+          sources: sourcesToTranslate,
+          from: sourceTranslatorLanguage,
+          to: [targetTranslatorLanguage]
+      ) {
+      case let .success(translations):
+          var translationMap = [String: String]() // Map key to translated text
+          for translation in translations {
+              translationMap[translation.key] = translation.translatedText
           }
 
-        case let .failure(failure):
+          for sourceTranslation in sourceTranslations {
+              let (sourceKey, sourceValue, sourceComment, sourceLine) = sourceTranslation
+              var targetTranslationOptional = existingTargetTranslations.first { $0.key == sourceKey }
+
+              if targetTranslationOptional == nil {
+                  targetTranslationOptional = (sourceKey, "", sourceComment, sourceLine)
+              }
+
+              guard let targetTranslation = targetTranslationOptional else {
+                  print("targetTranslation was nil when not expected", level: .error, file: path)
+                  fatalError()
+              }
+
+              let (key, value, comment, line) = targetTranslation
+
+              guard value.isEmpty || override else {
+                  updatedTargetTranslations.append(targetTranslation)
+                  continue  // skip already translated values
+              }
+
+              guard !sourceValue.isEmpty else {
+                  print(
+                      "Value for key '\(key)' in source translations is empty.",
+                      level: .warning,
+                      file: sourceStringsFilePath,
+                      line: line
+                  )
+                  continue
+              }
+
+              let updatedTargetTranslationIndex = updatedTargetTranslations.count
+              updatedTargetTranslations.append(targetTranslation)
+
+              if let translatedValue = translationMap[sourceKey] {
+                  if !translatedValue.isEmpty {
+                      updatedTargetTranslations[updatedTargetTranslationIndex] = (
+                          key, translatedValue.asStringLiteral, comment, line
+                      )
+                      translatedValuesCount += 1
+                  } else {
+                      print(
+                          "Resulting translation of '\(sourceValue)' to '\(targetTranslatorLanguage)' was empty.",
+                          level: .warning,
+                          file: path,
+                          line: line
+                      )
+                  }
+              } else {
+                  print("Could not fetch translation for '\(sourceValue)'.", level: .warning, file: path, line: line)
+              }
+
+          }
+
+      case let .failure(failure):
           print(
-            "Translation request failed with error: \(failure.errorDescription)",
-            level: .warning,
-            file: path,
-            line: line
+              "Translation request failed with error: \(failure.errorDescription)",
+              level: .warning,
+              file: path,
+              line: -1
           )
-        }
       }
 
       if translatedValuesCount > 0 {

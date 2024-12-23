@@ -6,7 +6,7 @@ import MungoHealer
 ///
 /// NOTE: Currently only supports Microsoft Translator Text API using a subscription key.
 public final class BartyCrouchTranslator {
-  public typealias Translation = (language: Language, translatedText: String)
+  public typealias Translation = (language: Language, translatedText: String, key: String)
 
   /// The supported translation services.
   public enum TranslationService {
@@ -61,72 +61,96 @@ public final class BartyCrouchTranslator {
   /// Translates the given text from a given language to one or multiple given other languages.
   /// 
   /// - Parameters:
-  ///   - sources: The texts to be translated.
+  ///   - sources: The texts to be translated and keys, comments
   ///   - targetLanguages: An array of other languages to be translated to.
   ///   - comment: Comment provided by user in the source language
   /// - Returns: A `Result` wrapper containing an array of translations if the request was successful, else the related error.
   public func translate(
-    sources: [TranslationSource],
-    from sourceLanguage: Language,
-    to targetLanguages: [Language]
+      sources: [TranslationSource],
+      from sourceLanguage: Language,
+      to targetLanguages: [Language]
   ) -> Result<[Translation], MungoError> {
-    switch translationService {
-    case let .microsoft(subscriptionKey):
-      let endpoint = MicrosoftTranslatorApi.translate(
-        texts: sources.map({ $0.text}),
-        from: sourceLanguage,
-        to: targetLanguages,
-        microsoftSubscriptionKey: subscriptionKey
-      )
-
-      switch microsoftProvider.performRequestAndWait(on: endpoint, decodeBodyTo: [TranslateResponse].self) {
-      case let .success(translateResponses):
-        if let translations: [Translation] = translateResponses.first?.translations
-          .map({ (Language.with(locale: $0.to)!, $0.text) })
-        {
-          return .success(translations)
-        }
-        else {
-          return .failure(
-            MungoError(source: .internalInconsistency, message: "Could not fetch translation(s) for '\(sources.map{ $0.text })'.")
-          )
-        }
-
-      case let .failure(failure):
-        return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
-      }
-
-    case let .deepL(apiKey):
-      var allTranslations: [Translation] = []
-      for targetLanguage in targetLanguages {
-        let endpoint = DeepLApi.translate(texts: sources.map({ $0.text }), from: sourceLanguage, to: targetLanguage, apiKey: apiKey)
-        switch deepLProvider.performRequestAndWait(on: endpoint, decodeBodyTo: DeepLTranslateResponse.self) {
-        case let .success(translateResponse):
-          let translations: [Translation] = translateResponse.translations.map({ (targetLanguage, $0.text) })
-          allTranslations.append(contentsOf: translations)
-
-        case let .failure(failure):
-          return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
-        }
-      }
-
-      return .success(allTranslations)
-    case let .openAI(apiKey, context):
-      var allTranslations: [Translation] = []
-      for targetLanguage in targetLanguages {
-        let endpoint = OpenAIApi.translate(sources: sources, from: sourceLanguage, to: targetLanguage, context: context, apiKey: apiKey)
-        switch openAIProvider.performRequestAndWait(on: endpoint, decodeBodyTo: OpenAITranslateResponse.self) {
-        case let .success(translateResponses):
-          let translations: [Translation] = translateResponses.choices.first?.message.content.translations.compactMap({ (targetLanguage, $0.text) }) ?? []
-          allTranslations.append(contentsOf: translations)
-          
-        case let .failure(failure):
-          return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
-        }
-      }
+      switch translationService {
       
-      return .success(allTranslations)
+      // Microsoft Translation
+      case let .microsoft(subscriptionKey):
+          let endpoint = MicrosoftTranslatorApi.translate(
+              texts: sources.map({ $0.text }),
+              from: sourceLanguage,
+              to: targetLanguages,
+              microsoftSubscriptionKey: subscriptionKey
+          )
+
+          switch microsoftProvider.performRequestAndWait(on: endpoint, decodeBodyTo: [TranslateResponse].self) {
+          case let .success(translateResponses):
+            if let translations: [Translation] = translateResponses.first?.translations.enumerated().map({ iterator in
+              return Translation(language: Language.with(locale: iterator.element.to)!,
+                                 translatedText: iterator.element.text,
+                                 key: sources[iterator.offset].key)
+            }) {
+                  return .success(translations)
+              } else {
+                  return .failure(
+                      MungoError(source: .internalInconsistency, message: "Could not fetch translation(s) for '\(sources.map { $0.text })'.")
+                  )
+              }
+
+          case let .failure(failure):
+              return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
+          }
+
+      // DeepL Translation
+      case let .deepL(apiKey):
+          var allTranslations: [Translation] = []
+          for targetLanguage in targetLanguages {
+              let endpoint = DeepLApi.translate(
+                  texts: sources.map({ $0.text }),
+                  from: sourceLanguage,
+                  to: targetLanguage,
+                  apiKey: apiKey
+              )
+              switch deepLProvider.performRequestAndWait(on: endpoint, decodeBodyTo: DeepLTranslateResponse.self) {
+              case let .success(translateResponse):
+                  let translations: [Translation] = translateResponse.translations.enumerated().map { iterator in
+                    return Translation(language: targetLanguage,
+                                       translatedText: iterator.element.text,
+                                       key: sources[iterator.offset].key)
+                  }
+                  allTranslations.append(contentsOf: translations)
+
+              case let .failure(failure):
+                  return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
+              }
+          }
+          return .success(allTranslations)
+
+      // OpenAI Translation
+      case let .openAI(apiKey, context):
+          var allTranslations: [Translation] = []
         
-    }
+       
+          for targetLanguage in targetLanguages {
+              let endpoint = OpenAIApi.translate(
+                  sources: sources,
+                  from: sourceLanguage,
+                  to: targetLanguage,
+                  context: context,
+                  apiKey: apiKey
+              )
+              switch openAIProvider.performRequestAndWait(on: endpoint, decodeBodyTo: OpenAITranslateResponse.self) {
+              case let .success(translateResponses):
+                  let translations = translateResponses.choices.first?.message.content.translations.enumerated().compactMap { iterator in
+                    return Translation(language: targetLanguage,
+                                       translatedText: iterator.element.text,
+                                       key: sources[iterator.offset].key)
+                  } ?? [Translation]()
+                  allTranslations.append(contentsOf: translations)
+
+              case let .failure(failure):
+                  return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
+              }
+          }
+          return .success(allTranslations)
+      }
   }
 }
