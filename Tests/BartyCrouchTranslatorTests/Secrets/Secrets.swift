@@ -3,6 +3,7 @@ import Foundation
 struct Secrets: Decodable {
   let deepLApiKey: String
   let microsoftSubscriptionKey: String
+  let openAIApiKey: String
 
   static func load() throws -> Self {
     let secretsFileUrl = Bundle.module.url(forResource: "secrets", withExtension: "json")

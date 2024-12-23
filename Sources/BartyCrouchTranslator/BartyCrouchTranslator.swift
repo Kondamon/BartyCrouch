@@ -17,10 +17,27 @@ public final class BartyCrouchTranslator {
     ///   - subscriptionKey: The `Ocp-Apim-Subscription-Key`, also called "Azure secret key" in the docs.
     case microsoft(subscriptionKey: String)
     case deepL(apiKey: String)
+    case openAI(apiKey: String, context: String)
+  }
+  
+  public struct TranslationSource {
+    /// Key in source file
+    var key: String
+    /// Text to be translated
+    var text: String
+    /// User provided comment
+    var comment: String?
+    
+    public init(key: String, text: String, comment: String? = nil) {
+      self.key = key
+      self.text = text
+      self.comment = comment
+    }
   }
 
   private let microsoftProvider = ApiProvider<MicrosoftTranslatorApi>(baseUrl: MicrosoftTranslatorApi.baseUrl)
   private let deepLProvider: ApiProvider<DeepLApi>
+  private let openAIProvider = ApiProvider<OpenAIApi>(baseUrl: OpenAIApi.baseUrl())
 
   private let translationService: TranslationService
 
@@ -42,21 +59,21 @@ public final class BartyCrouchTranslator {
   }
 
   /// Translates the given text from a given language to one or multiple given other languages.
-  ///
+  /// 
   /// - Parameters:
-  ///   - text: The text to be translated.
-  ///   - sourceLanguage: The source language the given text is in.
+  ///   - sources: The texts to be translated.
   ///   - targetLanguages: An array of other languages to be translated to.
+  ///   - comment: Comment provided by user in the source language
   /// - Returns: A `Result` wrapper containing an array of translations if the request was successful, else the related error.
   public func translate(
-    text: String,
+    sources: [TranslationSource],
     from sourceLanguage: Language,
     to targetLanguages: [Language]
   ) -> Result<[Translation], MungoError> {
     switch translationService {
     case let .microsoft(subscriptionKey):
       let endpoint = MicrosoftTranslatorApi.translate(
-        texts: [text],
+        texts: sources.map({ $0.text}),
         from: sourceLanguage,
         to: targetLanguages,
         microsoftSubscriptionKey: subscriptionKey
@@ -71,7 +88,7 @@ public final class BartyCrouchTranslator {
         }
         else {
           return .failure(
-            MungoError(source: .internalInconsistency, message: "Could not fetch translation(s) for '\(text)'.")
+            MungoError(source: .internalInconsistency, message: "Could not fetch translation(s) for '\(sources.map{ $0.text })'.")
           )
         }
 
@@ -82,7 +99,7 @@ public final class BartyCrouchTranslator {
     case let .deepL(apiKey):
       var allTranslations: [Translation] = []
       for targetLanguage in targetLanguages {
-        let endpoint = DeepLApi.translate(texts: [text], from: sourceLanguage, to: targetLanguage, apiKey: apiKey)
+        let endpoint = DeepLApi.translate(texts: sources.map({ $0.text }), from: sourceLanguage, to: targetLanguage, apiKey: apiKey)
         switch deepLProvider.performRequestAndWait(on: endpoint, decodeBodyTo: DeepLTranslateResponse.self) {
         case let .success(translateResponse):
           let translations: [Translation] = translateResponse.translations.map({ (targetLanguage, $0.text) })
@@ -94,6 +111,22 @@ public final class BartyCrouchTranslator {
       }
 
       return .success(allTranslations)
+    case let .openAI(apiKey, context):
+      var allTranslations: [Translation] = []
+      for targetLanguage in targetLanguages {
+        let endpoint = OpenAIApi.translate(sources: sources, from: sourceLanguage, to: targetLanguage, context: context, apiKey: apiKey)
+        switch openAIProvider.performRequestAndWait(on: endpoint, decodeBodyTo: OpenAITranslateResponse.self) {
+        case let .success(translateResponses):
+          let translations: [Translation] = translateResponses.choices.first?.message.content.translations.compactMap({ (targetLanguage, $0.text) }) ?? []
+          allTranslations.append(contentsOf: translations)
+          
+        case let .failure(failure):
+          return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
+        }
+      }
+      
+      return .success(allTranslations)
+        
     }
   }
 }

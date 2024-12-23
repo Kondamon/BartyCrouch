@@ -6,6 +6,7 @@ import Toml
 public enum Translator: String {
   case microsoftTranslator
   case deepL
+  case openAI
 }
 
 public struct TranslateOptions {
@@ -34,6 +35,9 @@ extension TranslateOptions: TomlCodable {
 
       case .deepL:
         secret = .deepL(secret: secretString)
+      case .openAI:
+        let contextString: String = toml.string(update, translate, "context") ?? ""
+        secret = .openAI(secret: secretString, context: contextString)
       }
 
       return TranslateOptions(
@@ -63,6 +67,9 @@ extension TranslateOptions: TomlCodable {
 
     case let .microsoftTranslator(secret):
       lines.append(#"secret = "\#(secret)""#)
+    case let .openAI(secret, context):
+      lines.append(#"secret = "\#(secret)""#)
+      lines.append(#"context = "\#(context)""#)
     }
 
     lines.append(#"sourceLocale = "\#(sourceLocale)""#)

@@ -15,6 +15,7 @@ import MungoHealer
 public class StringsFileUpdater {
   // MARK: - Sub Types
   typealias TranslationEntry = (key: String, value: String, comment: String?, line: Int)
+  typealias Source = BartyCrouchTranslator.TranslationSource
   typealias LocaleInfo = (language: String, region: String?)
   typealias DuplicateEntry = (String, [TranslationEntry])
 
@@ -307,6 +308,8 @@ public class StringsFileUpdater {
 
       case let .deepL(secret):
         translator = .init(translationService: .deepL(apiKey: secret))
+      case let .openAI(secret, context):
+        translator = .init(translationService: .openAI(apiKey: secret, context: context))
       }
 
       for sourceTranslation in sourceTranslations {
@@ -342,7 +345,10 @@ public class StringsFileUpdater {
         let updatedTargetTranslationIndex = updatedTargetTranslations.count
         updatedTargetTranslations.append(targetTranslation)
 
-        switch translator.translate(text: sourceValue, from: sourceTranslatorLanguage, to: [targetTranslatorLanguage]) {
+        switch translator.translate(sources: [Source(key: sourceKey,
+                                                     text: sourceValue,
+                                                     comment: sourceComment)],
+                                    from: sourceTranslatorLanguage, to: [targetTranslatorLanguage]) {
         case let .success(translations):
           if let translatedValue = translations.first?.translatedText {
             if !translatedValue.isEmpty {
