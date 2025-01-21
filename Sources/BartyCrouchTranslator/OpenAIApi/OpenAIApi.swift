@@ -28,7 +28,7 @@ enum OpenAIApi {
   static let maximumTextsPerRequest: Int = 25
   
   /// Maximum total character length for all texts in a single request.
-  static let maximumTextsLengthPerRequest: Int = 5_000
+  static let maximumTextsLengthPerRequest: Int = 1_000
   
   /// Utility function that splits a list of texts into batches,
   /// ensuring the total texts per batch and total character lengths
