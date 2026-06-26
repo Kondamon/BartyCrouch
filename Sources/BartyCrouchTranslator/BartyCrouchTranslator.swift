@@ -2,6 +2,43 @@ import Foundation
 import Microya
 import MungoHealer
 
+private enum DeepLPlaceholderProtector {
+  static let pattern = "%(?:\\d+\\$)?[-+ 0#]*\\d*(?:\\.\\d+)?(?:hh|h|ll|l|q|z|t|j|L)?[@dDiuUxXoObeEfgGaAcsSpn%]"
+
+  static func wrap(_ text: String) -> String {
+    guard let regex = try? NSRegularExpression(pattern: pattern) else { return escapeXML(text) }
+    let fullRange = NSRange(text.startIndex..., in: text)
+    var result = ""
+    var cursor = text.startIndex
+    for match in regex.matches(in: text, range: fullRange) {
+      guard let range = Range(match.range, in: text) else { continue }
+      let token = String(text[range])
+      result += escapeXML(String(text[cursor..<range.lowerBound]))
+      result += token == "%%" ? escapeXML(token) : "<x>\(token)</x>"
+      cursor = range.upperBound
+    }
+    result += escapeXML(String(text[cursor...]))
+    return result
+  }
+
+  static func unwrap(_ text: String) -> String {
+    let stripped = text.replacingOccurrences(of: "<x>", with: "").replacingOccurrences(of: "</x>", with: "")
+    return unescapeXML(stripped)
+  }
+
+  private static func escapeXML(_ value: String) -> String {
+    value.replacingOccurrences(of: "&", with: "&amp;")
+         .replacingOccurrences(of: "<", with: "&lt;")
+         .replacingOccurrences(of: ">", with: "&gt;")
+  }
+
+  private static func unescapeXML(_ value: String) -> String {
+    value.replacingOccurrences(of: "&lt;", with: "<")
+         .replacingOccurrences(of: "&gt;", with: ">")
+         .replacingOccurrences(of: "&amp;", with: "&")
+  }
+}
+
 /// Translator service to translate texts from one language to another.
 ///
 /// NOTE: Currently only supports Microsoft Translator Text API using a subscription key.
@@ -105,7 +142,7 @@ public final class BartyCrouchTranslator {
           var allTranslations: [Translation] = []
           for targetLanguage in targetLanguages {
               let endpoint = DeepLApi.translate(
-                  texts: sources.map({ $0.text }),
+                  texts: sources.map({ DeepLPlaceholderProtector.wrap($0.text) }),
                   from: sourceLanguage,
                   to: targetLanguage,
                   apiKey: apiKey
@@ -114,13 +151,15 @@ public final class BartyCrouchTranslator {
               case let .success(translateResponse):
                   let translations: [Translation] = translateResponse.translations.enumerated().map { iterator in
                     return Translation(language: targetLanguage,
-                                       translatedText: iterator.element.text,
+                                       translatedText: DeepLPlaceholderProtector.unwrap(iterator.element.text),
                                        key: sources[iterator.offset].key)
                   }
                   allTranslations.append(contentsOf: translations)
 
               case let .failure(failure):
-                  return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
+                  let warning = "warning: DeepL skipped unsupported/failed target \(targetLanguage.rawValue) (\(failure.localizedDescription))\n"
+                  FileHandle.standardError.write(Data(warning.utf8))
+                  continue
               }
           }
           return .success(allTranslations)

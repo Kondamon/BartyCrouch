@@ -62,9 +62,12 @@ extension DeepLApi: Endpoint {
       let textItems = texts.map { URLQueryItem(name: "text", value: $0) }
       let targetLangItem = URLQueryItem(name: "target_lang", value: targetLanguage.deepLParameterValue)
       let sourceLangItem = URLQueryItem(name: "source_lang", value: sourceLanguage.deepLParameterValue)
+      let formalityItem = URLQueryItem(name: "formality", value: "prefer_less")
+      let tagHandlingItem = URLQueryItem(name: "tag_handling", value: "xml")
+      let ignoreTagsItem = URLQueryItem(name: "ignore_tags", value: "x")
       
       var components = URLComponents()
-      components.queryItems = ([authKeyItem, targetLangItem, sourceLangItem] + textItems).compactMap { $0 }
+      components.queryItems = ([authKeyItem, targetLangItem, sourceLangItem, formalityItem, tagHandlingItem, ignoreTagsItem] + textItems).compactMap { $0 }
       
       guard var queryItemsString = components.string else {
           fatalError("Invalid arguments.")
