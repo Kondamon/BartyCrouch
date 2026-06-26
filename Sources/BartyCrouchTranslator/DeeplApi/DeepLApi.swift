@@ -66,8 +66,14 @@ extension DeepLApi: Endpoint {
       let tagHandlingItem = URLQueryItem(name: "tag_handling", value: "xml")
       let ignoreTagsItem = URLQueryItem(name: "ignore_tags", value: "x")
       
+      var queryItems = [authKeyItem, targetLangItem, sourceLangItem, formalityItem, tagHandlingItem, ignoreTagsItem]
+      if let glossaryId = ProcessInfo.processInfo.environment["DEEPL_GLOSSARY_ID"], !glossaryId.isEmpty {
+        queryItems.append(URLQueryItem(name: "glossary_id", value: glossaryId))
+      }
+      queryItems += textItems
+
       var components = URLComponents()
-      components.queryItems = ([authKeyItem, targetLangItem, sourceLangItem, formalityItem, tagHandlingItem, ignoreTagsItem] + textItems).compactMap { $0 }
+      components.queryItems = queryItems
       
       guard var queryItemsString = components.string else {
           fatalError("Invalid arguments.")
