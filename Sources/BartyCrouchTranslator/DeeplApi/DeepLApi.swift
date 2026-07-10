@@ -56,9 +56,8 @@ extension DeepLApi: Endpoint {
 
   var method: HttpMethod {
     switch self {
-    case .translate(let texts, let sourceLanguage, let targetLanguage, let authKey):
+    case .translate(let texts, let sourceLanguage, let targetLanguage, _):
       
-      let authKeyItem = URLQueryItem(name: "auth_key", value: authKey)
       let textItems = texts.map { URLQueryItem(name: "text", value: $0) }
       let targetLangItem = URLQueryItem(name: "target_lang", value: targetLanguage.deepLParameterValue)
       let sourceLangItem = URLQueryItem(name: "source_lang", value: sourceLanguage.deepLParameterValue)
@@ -66,7 +65,7 @@ extension DeepLApi: Endpoint {
       let tagHandlingItem = URLQueryItem(name: "tag_handling", value: "xml")
       let ignoreTagsItem = URLQueryItem(name: "ignore_tags", value: "x")
       
-      var queryItems = [authKeyItem, targetLangItem, sourceLangItem, formalityItem, tagHandlingItem, ignoreTagsItem]
+      var queryItems = [targetLangItem, sourceLangItem, formalityItem, tagHandlingItem, ignoreTagsItem]
       if let glossaryId = ProcessInfo.processInfo.environment["DEEPL_GLOSSARY_ID"], !glossaryId.isEmpty {
         queryItems.append(URLQueryItem(name: "glossary_id", value: glossaryId))
       }
@@ -88,7 +87,14 @@ extension DeepLApi: Endpoint {
   }
 
   var headers: [String: String] {
-    ["Content-Type": "application/x-www-form-urlencoded"]
+    switch self {
+    case .translate(_, _, _, let authKey):
+      return [
+        "Content-Type": "application/x-www-form-urlencoded",
+        // DeepL deprecated form-body/query auth (Nov 2025); the key must be sent as a header.
+        "Authorization": "DeepL-Auth-Key \(authKey)",
+      ]
+    }
   }
 
   static func baseUrl(for apiType: ApiType) -> URL {
