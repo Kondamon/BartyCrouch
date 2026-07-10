@@ -167,27 +167,29 @@ public final class BartyCrouchTranslator {
       // OpenAI Translation
       case let .openAI(apiKey, context):
           var allTranslations: [Translation] = []
-        
-       
-          for targetLanguage in targetLanguages {
-              let endpoint = OpenAIApi.translate(
-                  sources: sources,
-                  from: sourceLanguage,
-                  to: targetLanguage,
-                  context: context,
-                  apiKey: apiKey
-              )
-              switch openAIProvider.performRequestAndWait(on: endpoint, decodeBodyTo: OpenAITranslateResponse.self) {
-              case let .success(translateResponses):
-                  let translations = translateResponses.choices.first?.message.content.translations.enumerated().compactMap { iterator in
-                    return Translation(language: targetLanguage,
-                                       translatedText: iterator.element.text,
-                                       key: sources[iterator.offset].key)
-                  } ?? [Translation]()
-                  allTranslations.append(contentsOf: translations)
 
-              case let .failure(failure):
-                  return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
+          // Chunk large inputs so big batches don't time out; small batches stay a single request.
+          for targetLanguage in targetLanguages {
+              for batch in OpenAIApi.sourceBatches(forSources: sources) {
+                  let endpoint = OpenAIApi.translate(
+                      sources: batch,
+                      from: sourceLanguage,
+                      to: targetLanguage,
+                      context: context,
+                      apiKey: apiKey
+                  )
+                  switch openAIProvider.performRequestAndWait(on: endpoint, decodeBodyTo: OpenAITranslateResponse.self) {
+                  case let .success(translateResponses):
+                      let translations = translateResponses.choices.first?.message.content.translations.enumerated().compactMap { iterator in
+                        return Translation(language: targetLanguage,
+                                           translatedText: iterator.element.text,
+                                           key: batch[iterator.offset].key)
+                      } ?? [Translation]()
+                      allTranslations.append(contentsOf: translations)
+
+                  case let .failure(failure):
+                      return .failure(MungoError(source: .internalInconsistency, message: failure.localizedDescription))
+                  }
               }
           }
           return .success(allTranslations)

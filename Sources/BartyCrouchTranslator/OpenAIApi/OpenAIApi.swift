@@ -60,6 +60,39 @@ enum OpenAIApi {
     
     return batches
   }
+
+  /// Splits translation sources into batches that respect the per-request
+  /// count and total character length limits (same rules as `textBatches`),
+  /// while preserving each source's key/comment association.
+  /// - Parameter sources: The translation sources to be processed.
+  /// - Returns: A two-dimensional array where each sub-array is one request batch.
+  static func sourceBatches(
+    forSources sources: [BartyCrouchTranslator.TranslationSource]
+  ) -> [[BartyCrouchTranslator.TranslationSource]] {
+    var batches: [[BartyCrouchTranslator.TranslationSource]] = []
+    var currentBatch: [BartyCrouchTranslator.TranslationSource] = []
+    var currentBatchTotalLength: Int = 0
+
+    for source in sources {
+      if currentBatch.count < maximumTextsPerRequest
+          && source.text.count + currentBatchTotalLength < maximumTextsLengthPerRequest
+      {
+        currentBatch.append(source)
+        currentBatchTotalLength += source.text.count
+      } else {
+        batches.append(currentBatch)
+        currentBatch = [source]
+        currentBatchTotalLength = source.text.count
+      }
+    }
+
+    // Don’t forget to add the last batch if it’s non-empty
+    if !currentBatch.isEmpty {
+      batches.append(currentBatch)
+    }
+
+    return batches
+  }
 }
 
 /// Extend `OpenAIApi` to conform to Microya’s `Endpoint` protocol.
