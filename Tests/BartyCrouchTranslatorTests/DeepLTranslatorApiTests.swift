@@ -4,26 +4,27 @@ import Microya
 import XCTest
 
 class DeepLTranslatorApiTests: XCTestCase {
-  func testTranslate() {
-    let apiKey = try! Secrets.load().deepLApiKey  // swiftlint:disable:this force_try
-    guard !apiKey.isEmpty else { return }
+    func testTranslate() {
+        let apiKey = try! Secrets.load().deepLApiKey // swiftlint:disable:this force_try
+        guard !apiKey.isEmpty else { return }
 
-    let endpoint = DeepLApi.translate(
-      texts: ["How old are you?", "Love"],
-      from: .english,
-      to: .german,
-      apiKey: apiKey
-    )
+        let endpoint = DeepLApi.translate(
+            texts: ["How old are you?", "Love"],
+            from: .english,
+            to: .german,
+            context: nil,
+            apiKey: apiKey
+        )
 
-    let apiProvider = ApiProvider<DeepLApi>(baseUrl: DeepLApi.baseUrl(for: .free))
+        let apiProvider = ApiProvider<DeepLApi>(baseUrl: DeepLApi.baseUrl(for: .free))
 
-    switch apiProvider.performRequestAndWait(on: endpoint, decodeBodyTo: DeepLTranslateResponse.self) {
-    case let .success(translateResponses):
-      XCTAssertEqual(translateResponses.translations[0].text, "Wie alt sind Sie?")
-      XCTAssertEqual(translateResponses.translations[1].text, "Liebe")
+        switch apiProvider.performRequestAndWait(on: endpoint, decodeBodyTo: DeepLTranslateResponse.self) {
+        case let .success(translateResponses):
+            XCTAssertEqual(translateResponses.translations[0].text, "Wie alt sind Sie?")
+            XCTAssertEqual(translateResponses.translations[1].text, "Liebe")
 
-    case let .failure(failure):
-      XCTFail(failure.localizedDescription)
+        case let .failure(failure):
+            XCTFail(failure.localizedDescription)
+        }
     }
-  }
 }

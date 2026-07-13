@@ -4,77 +4,78 @@ import MungoHealer
 import Toml
 
 public enum Translator: String {
-  case microsoftTranslator
-  case deepL
-  case openAI
+    case microsoftTranslator
+    case deepL
+    case openAI
 }
 
 public struct TranslateOptions {
-  public let paths: [String]
-  public let subpathsToIgnore: [String]
-  public let secret: Secret
-  public let sourceLocale: String
-  public let separateWithEmptyLine: Bool
+    public let paths: [String]
+    public let subpathsToIgnore: [String]
+    public let secret: Secret
+    public let sourceLocale: String
+    public let separateWithEmptyLine: Bool
 }
 
 extension TranslateOptions: TomlCodable {
-  static func make(toml: Toml) throws -> TranslateOptions {
-    let update: String = "update"
-    let translate: String = "translate"
+    static func make(toml: Toml) throws -> TranslateOptions {
+        let update: String = "update"
+        let translate: String = "translate"
 
-    if let secretString: String = toml.string(update, translate, "secret") {
-      let translator = toml.string(update, translate, "translator") ?? "microsoftTranslator"
-      let paths = toml.filePaths(update, translate, singularKey: "path", pluralKey: "paths")
-      let subpathsToIgnore = toml.array(update, translate, "subpathsToIgnore") ?? Constants.defaultSubpathsToIgnore
-      let sourceLocale: String = toml.string(update, translate, "sourceLocale") ?? "en"
-      let separateWithEmptyLine = toml.bool(update, translate, "separateWithEmptyLine") ?? true
-      let secret: Secret
-      switch Translator(rawValue: translator) {
-      case .microsoftTranslator, .none:
-        secret = .microsoftTranslator(secret: secretString)
+        if let secretString: String = toml.string(update, translate, "secret") {
+            let translator = toml.string(update, translate, "translator") ?? "microsoftTranslator"
+            let paths = toml.filePaths(update, translate, singularKey: "path", pluralKey: "paths")
+            let subpathsToIgnore = toml.array(update, translate, "subpathsToIgnore") ?? Constants.defaultSubpathsToIgnore
+            let sourceLocale: String = toml.string(update, translate, "sourceLocale") ?? "en"
+            let separateWithEmptyLine = toml.bool(update, translate, "separateWithEmptyLine") ?? true
+            let secret: Secret
+            switch Translator(rawValue: translator) {
+            case .microsoftTranslator, .none:
+                secret = .microsoftTranslator(secret: secretString)
 
-      case .deepL:
-        secret = .deepL(secret: secretString)
-      case .openAI:
-        let contextString: String = toml.string(update, translate, "context") ?? ""
-        secret = .openAI(secret: secretString, context: contextString)
-      }
+            case .deepL:
+                let contextString: String = toml.string(update, translate, "context") ?? ""
+                secret = .deepL(secret: secretString, context: contextString)
+            case .openAI:
+                let contextString: String = toml.string(update, translate, "context") ?? ""
+                secret = .openAI(secret: secretString, context: contextString)
+            }
 
-      return TranslateOptions(
-        paths: paths,
-        subpathsToIgnore: subpathsToIgnore,
-        secret: secret,
-        sourceLocale: sourceLocale,
-        separateWithEmptyLine: separateWithEmptyLine
-      )
-    }
-    else {
-      throw MungoError(
-        source: .invalidUserInput,
-        message: "Incomplete [update.translate] options provided, ignoring them all."
-      )
-    }
-  }
-
-  func tomlContents() -> String {
-    var lines: [String] = ["[update.translate]"]
-
-    lines.append("paths = \(paths)")
-    lines.append("subpathsToIgnore = \(subpathsToIgnore)")
-    switch secret {
-    case let .deepL(secret):
-      lines.append(#"secret = "\#(secret)""#)
-
-    case let .microsoftTranslator(secret):
-      lines.append(#"secret = "\#(secret)""#)
-    case let .openAI(secret, context):
-      lines.append(#"secret = "\#(secret)""#)
-      lines.append(#"context = "\#(context)""#)
+            return TranslateOptions(
+                paths: paths,
+                subpathsToIgnore: subpathsToIgnore,
+                secret: secret,
+                sourceLocale: sourceLocale,
+                separateWithEmptyLine: separateWithEmptyLine
+            )
+        } else {
+            throw MungoError(
+                source: .invalidUserInput,
+                message: "Incomplete [update.translate] options provided, ignoring them all."
+            )
+        }
     }
 
-    lines.append(#"sourceLocale = "\#(sourceLocale)""#)
-    lines.append("separateWithEmptyLine = \(self.separateWithEmptyLine)")
+    func tomlContents() -> String {
+        var lines: [String] = ["[update.translate]"]
 
-    return lines.joined(separator: "\n")
-  }
+        lines.append("paths = \(paths)")
+        lines.append("subpathsToIgnore = \(subpathsToIgnore)")
+        switch secret {
+        case let .deepL(secret, context):
+            lines.append(#"secret = "\#(secret)""#)
+            lines.append(#"context = "\#(context)""#)
+
+        case let .microsoftTranslator(secret):
+            lines.append(#"secret = "\#(secret)""#)
+        case let .openAI(secret, context):
+            lines.append(#"secret = "\#(secret)""#)
+            lines.append(#"context = "\#(context)""#)
+        }
+
+        lines.append(#"sourceLocale = "\#(sourceLocale)""#)
+        lines.append("separateWithEmptyLine = \(self.separateWithEmptyLine)")
+
+        return lines.joined(separator: "\n")
+    }
 }
