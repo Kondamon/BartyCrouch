@@ -4,9 +4,9 @@ import SwiftCLI
 
 // MARK: - CLI
 let cli = CLI(
-  name: "bartycrouch",
-  version: "4.15.0",
-  description: "Incrementally update & translate your Strings files from code or interface files."
+    name: "bartycrouch",
+    version: "4.17.0",
+    description: "Incrementally update & translate your Strings files from code or interface files."
 )
 
 cli.commands = [InitCommand(), UpdateCommand(), LintCommand()]
